@@ -1,4 +1,5 @@
 import { ThreadFindTimelineContext } from "./ThreadFindProvider";
+import { AgentPlanPanel } from "./AgentPlanPanel";
 import { shouldPreserveAssistantLineBreaks } from "@t3tools/shared/markdownPipeline";
 import { MarkdownFindContext, useFindRevealRef } from "./markdownFindContext";
 import { ComputerUseAppIcon } from "~/components/Icons";
@@ -25,6 +26,7 @@ import {
   type AssistantCitation,
   type EnvironmentId,
   type MessageId,
+  type OrchestrationV2AgentPlan,
   type OrchestrationV2TurnItem,
   type RunAttemptId,
   type ScopedThreadRef,
@@ -479,6 +481,8 @@ interface MessagesTimelineProps {
   turnDiffSummaries: ReadonlyArray<TurnDiffSummary>;
   routeThreadKey: string;
   displayThreadKey?: string;
+  /** The plan the agent published for this thread, shown beside the minimap. */
+  agentPlan?: OrchestrationV2AgentPlan | null;
   onOpenTurnDiff: (runId: RunId, filePath?: string) => void;
   onOpenThread: (threadId: OrchestrationV2TurnItem["threadId"]) => void;
   parentThreadLink?: {
@@ -629,6 +633,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
   topFadeEnabled = false,
   historyControls,
   loadEarlier = null,
+  agentPlan = null,
 }: MessagesTimelineProps) {
   const listIdentityKey = displayThreadKey ?? routeThreadKey;
   const rememberedPosition = useMemo(
@@ -1094,6 +1099,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
     };
   }, [citationAlwaysRender, restoringAlwaysRender, fullscreenAppRowId]);
   const [minimapHitStripWidth, setMinimapHitStripWidth] = useState(0);
+  const [timelineSideGutter, setTimelineSideGutter] = useState(0);
   const [minimapCurrentIndex, setMinimapCurrentIndex] = useState<number | null>(null);
   const handleAnchorReady = useCallback(
     (info: { anchorIndex: number | undefined }) => {
@@ -1282,6 +1288,9 @@ const ConversationTimeline = memo(function ConversationTimeline({
         current === nextHasPersistentGutter ? current : nextHasPersistentGutter,
       );
       setMinimapHitStripWidth(resolveTimelineMinimapHitStripWidth(viewportWidth, contentWidth));
+      setTimelineSideGutter(
+        Math.max(0, (viewportWidth - Math.min(viewportWidth, contentWidth)) / 2),
+      );
       reportContentOverflow();
     };
 
@@ -1636,6 +1645,22 @@ const ConversationTimeline = memo(function ConversationTimeline({
                   animated: true,
                   viewOffset: 24,
                 });
+              }}
+            />
+            <AgentPlanPanel
+              plan={agentPlan}
+              threadKey={routeThreadKey}
+              sideGutter={timelineSideGutter}
+              onJumpToRun={(runId) => {
+                const index = rows.findIndex(
+                  (row) =>
+                    row.kind === "message" &&
+                    row.message.role === "user" &&
+                    row.message.runId === runId,
+                );
+                if (index < 0) return;
+                onManualNavigation();
+                void listRef.current?.scrollToIndex({ index, animated: true, viewOffset: 24 });
               }}
             />
           </TooltipScrollDismissArea>

@@ -230,6 +230,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["wide full width column layout messages composer monitor"],
   },
   {
+    id: "agent-plan-panel",
+    title: "Agent plan panel",
+    to: "/settings/appearance",
+    searchTerms: ["plan tasks lanes timeline checklist progress todo compact pill hide"],
+  },
+  {
     id: "panel-animations",
     title: "Panel animations",
     to: "/settings/appearance",

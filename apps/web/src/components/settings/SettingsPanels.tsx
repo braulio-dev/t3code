@@ -26,6 +26,7 @@ import {
   DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
   DEFAULT_UNIFIED_SETTINGS,
   type ChatWidth,
+  type AgentPlanPanelMode,
   type DiffLayout,
   type EnvironmentIdentificationMode,
   MAX_APPEARANCE_CONTRAST,
@@ -204,6 +205,12 @@ const CHAT_WIDTH_LABELS: Record<ChatWidth, string> = {
   comfortable: "Comfortable",
   wide: "Wide",
   full: "Full",
+};
+
+const AGENT_PLAN_PANEL_LABELS: Record<AgentPlanPanelMode, string> = {
+  full: "Panel",
+  compact: "Compact",
+  off: "Off",
 };
 
 const DIFF_LAYOUT_LABELS: Record<DiffLayout, string> = {
@@ -547,6 +554,9 @@ export function useSettingsRestore(onRestored?: () => void) {
         ? ["Diff colors"]
         : []),
       ...(settings.chatWidth !== DEFAULT_UNIFIED_SETTINGS.chatWidth ? ["Chat width"] : []),
+      ...(settings.agentPlanPanel !== DEFAULT_UNIFIED_SETTINGS.agentPlanPanel
+        ? ["Agent plan panel"]
+        : []),
       ...(settings.panelAnimationDurationMs !== DEFAULT_UNIFIED_SETTINGS.panelAnimationDurationMs
         ? ["Panel animations"]
         : []),
@@ -674,6 +684,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.appearanceContrast,
       settings.diffColorScheme,
       settings.chatWidth,
+      settings.agentPlanPanel,
       settings.enableAgentBrowserAccess,
       settings.confirmQuit,
       settings.confirmThreadArchive,
@@ -791,6 +802,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       appearanceContrast: DEFAULT_UNIFIED_SETTINGS.appearanceContrast,
       diffColorScheme: DEFAULT_UNIFIED_SETTINGS.diffColorScheme,
       chatWidth: DEFAULT_UNIFIED_SETTINGS.chatWidth,
+      agentPlanPanel: DEFAULT_UNIFIED_SETTINGS.agentPlanPanel,
       timestampFormat: DEFAULT_UNIFIED_SETTINGS.timestampFormat,
       notificationMode: DEFAULT_UNIFIED_SETTINGS.notificationMode,
       inAppNotificationsEnabled: DEFAULT_UNIFIED_SETTINGS.inAppNotificationsEnabled,
@@ -1451,6 +1463,41 @@ export function AppearanceSettingsPanel() {
                   <SelectItem value="comfortable">Comfortable (default)</SelectItem>
                   <SelectItem value="wide">Wide</SelectItem>
                   <SelectItem value="full">Full</SelectItem>
+                </SelectPopup>
+              </Select>
+            </div>
+          }
+        />
+
+        <SettingsRow
+          {...searchableSetting("agent-plan-panel")}
+          description="Show plans that agents publish for multi-step work beside the chat, as a small pill, or not at all."
+          resetAction={
+            settings.agentPlanPanel !== DEFAULT_UNIFIED_SETTINGS.agentPlanPanel ? (
+              <SettingResetButton
+                label="agent plan panel"
+                onClick={() =>
+                  updateSettings({ agentPlanPanel: DEFAULT_UNIFIED_SETTINGS.agentPlanPanel })
+                }
+              />
+            ) : null
+          }
+          control={
+            <div className="w-full sm:w-40">
+              <Select
+                value={settings.agentPlanPanel}
+                onValueChange={(value) => {
+                  if (value === "full" || value === "compact" || value === "off")
+                    updateSettings({ agentPlanPanel: value });
+                }}
+              >
+                <SelectTrigger size="sm" className="w-full min-w-0" aria-label="Agent plan panel">
+                  <SelectValue>{AGENT_PLAN_PANEL_LABELS[settings.agentPlanPanel]}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup align="end" alignItemWithTrigger={false}>
+                  <SelectItem value="full">Panel (default)</SelectItem>
+                  <SelectItem value="compact">Compact</SelectItem>
+                  <SelectItem value="off">Off</SelectItem>
                 </SelectPopup>
               </Select>
             </div>

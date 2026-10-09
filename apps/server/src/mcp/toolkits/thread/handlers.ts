@@ -290,6 +290,33 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
       targetRunId: input.targetRunId,
     })),
   ),
+  t3_plan_set: McpToolAccess.actsAsCaller((plan) =>
+    dispatch(undefined, (common) => ({
+      ...common,
+      type: "thread.agent-plan.update",
+      change: { type: "set", plan },
+    })),
+  ),
+  t3_plan_update: McpToolAccess.actsAsCaller((input) =>
+    dispatch(undefined, (common) => ({
+      ...common,
+      type: "thread.agent-plan.update",
+      change: { type: "update-steps", updates: input.updates },
+    })),
+  ),
+  t3_plan_read: McpToolAccess.readsAsCaller(() =>
+    Effect.gen(function* () {
+      const { projection } = yield* readThread(undefined);
+      return { plan: projection.thread.agentPlan ?? null };
+    }),
+  ),
+  t3_plan_clear: McpToolAccess.actsAsCaller(() =>
+    dispatch(undefined, (common) => ({
+      ...common,
+      type: "thread.agent-plan.update",
+      change: { type: "clear" },
+    })),
+  ),
   t3_thread_organize: writesThread((input) =>
     Effect.gen(function* () {
       const { threads, projection, caller } = yield* readThread(input.threadId);

@@ -10,6 +10,7 @@ import {
   usageLimitBlockedRun,
 } from "@t3tools/shared/orchestrationV2ThreadError";
 import { threadPullRequestsOf } from "@t3tools/shared/threadPullRequests";
+import { applyAgentPlanChange } from "./AgentPlan.ts";
 import {
   normalizeThreadPullRequestKey,
   visibleThreadPullRequests,
@@ -443,6 +444,7 @@ function commandThreadId(command: OrchestrationV2ServerCommand): ThreadId {
     case "thread.visit":
     case "thread.mark-unread":
     case "thread.metadata.update":
+    case "thread.agent-plan.update":
     case "thread.pull-request.link":
     case "thread.pull-request.unlink":
     case "thread.pull-request-link.sync":
@@ -2382,6 +2384,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           | "thread.active.reorder"
           | "thread.mark-unread"
           | "thread.metadata.update"
+          | "thread.agent-plan.update"
           | "thread.pull-request.link"
           | "thread.pull-request.unlink"
           | "thread.pull-request-link.sync"
@@ -2650,6 +2653,28 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       }
     }
 
+    const agentPlan =
+      command.type === "thread.agent-plan.update"
+        ? yield* Effect.gen(function* () {
+            const { runs } = yield* projectionStore
+              .getThreadRecords(command.threadId, ["runs"])
+              .pipe(mapDispatchError(command));
+            const result = applyAgentPlanChange(
+              thread.agentPlan ?? null,
+              command.change,
+              latestExecutedRun(runs)?.id ?? null,
+            );
+            if (!result.ok) {
+              return yield* new OrchestratorDispatchError({
+                commandId: command.commandId,
+                commandType: command.type,
+                cause: result.reason,
+              });
+            }
+            return result.plan;
+          })
+        : null;
+
     const needsProviderState =
       command.type === "thread.runtime-mode.set" ||
       command.type === "thread.model-selection.set" ||
@@ -2897,6 +2922,9 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         }
         case "thread.mark-unread":
           return { ...thread, lastVisitedAt: markUnreadVisitedAt };
+        // A plan tracks work the run already reports; it is not activity of its own.
+        case "thread.agent-plan.update":
+          return { ...thread, agentPlan };
         case "thread.metadata.update": {
           const previousRecovery =
             thread.limitRecovery?.runId === command.limitRecovery?.runId &&
@@ -3205,6 +3233,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           return "thread.active-reordered" as const;
         case "thread.mark-unread":
           return "thread.marked-unread" as const;
+        case "thread.agent-plan.update":
+          return "thread.agent-plan-updated" as const;
         case "thread.metadata.update":
         case "thread.title.regeneration.complete":
           return "thread.metadata-updated" as const;
@@ -10228,6 +10258,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       case "thread.active.reorder":
       case "thread.mark-unread":
       case "thread.metadata.update":
+      case "thread.agent-plan.update":
       case "thread.pull-request.link":
       case "thread.pull-request.unlink":
       case "thread.pull-request-link.sync":

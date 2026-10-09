@@ -18,6 +18,10 @@ import {
   RunId,
   NonNegativeInt,
   ProjectId,
+  OrchestrationV2AgentPlan,
+  OrchestrationV2AgentPlanGroup,
+  OrchestrationV2AgentPlanStep,
+  OrchestrationV2AgentPlanStepUpdate,
 } from "@t3tools/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Schema from "effect/Schema";
@@ -271,6 +275,54 @@ const ScheduledTaskRunTool = Tool.make("run_scheduled_task_now", {
   .annotate(Tool.Destructive, true)
   .annotate(Tool.OpenWorld, true);
 
+// The server records which run worked on a step; agents never send it.
+const { runId: _runId, ...planStepFields } = OrchestrationV2AgentPlanStep.fields;
+const PlanInput = Schema.Struct({
+  title: OrchestrationV2AgentPlan.fields.title,
+  groups: Schema.Array(
+    Schema.Struct({
+      ...OrchestrationV2AgentPlanGroup.fields,
+      steps: Schema.Array(Schema.Struct(planStepFields)).check(Schema.isMaxLength(50)),
+    }),
+  ).check(Schema.isMaxLength(20)),
+});
+const planCommandTool = {
+  ...commandTool,
+  success: Schema.Struct({ sequence: NonNegativeInt }),
+};
+const PlanSetTool = Tool.make("t3_plan_set", {
+  ...planCommandTool,
+  description:
+    "Show the user a plan panel for this thread and replace any existing plan. Use it only for substantial work that spans several turns or parallel tracks, such as lanes of dependent issues or a phased rollout. Do not use it for ordinary tasks; use your own todo list for those. Group steps into lanes or phases: style 'timeline' for steps done in order, 'checklist' for steps in any order. Use stable ids so later updates can address steps, set blockedBy on a group that waits on another, and link a step to an issue or PR ('#123' or a URL). Statuses: pending, active, done, blocked, skipped, failed.",
+  parameters: PlanInput,
+}).annotate(Tool.Destructive, false);
+const PlanUpdateTool = Tool.make("t3_plan_update", {
+  ...planCommandTool,
+  description:
+    "Update steps of this thread's plan by id as you work: mark the step you start active, and done, failed, skipped, or blocked when it ends. A note explains a failure or block; null removes it. Use t3_plan_set to restructure the plan.",
+  parameters: Schema.Struct({
+    updates: Schema.Array(OrchestrationV2AgentPlanStepUpdate).check(
+      Schema.isMinLength(1),
+      Schema.isMaxLength(100),
+    ),
+  }),
+}).annotate(Tool.Destructive, false);
+const PlanReadTool = Tool.make("t3_plan_read", {
+  ...commandTool,
+  description:
+    "Read this thread's plan, for example after your context was compacted. Returns null when there is no plan.",
+  parameters: Tool.EmptyParams,
+  success: Schema.Struct({ plan: Schema.NullOr(OrchestrationV2AgentPlan) }),
+})
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Destructive, false);
+const PlanClearTool = Tool.make("t3_plan_clear", {
+  ...planCommandTool,
+  description:
+    "Remove this thread's plan panel, for example when the planned work is abandoned or replaced by a different approach. A finished plan can stay; the panel collapses on its own.",
+  parameters: Tool.EmptyParams,
+}).annotate(Tool.Destructive, true);
+
 export const ThreadToolkit = Toolkit.make(
   ScheduledTaskRunTool,
   ThreadSearchTool,
@@ -289,4 +341,8 @@ export const ThreadToolkit = Toolkit.make(
   QueueCancelTool,
   QueueReorderTool,
   QueuePromoteTool,
+  PlanSetTool,
+  PlanUpdateTool,
+  PlanReadTool,
+  PlanClearTool,
 );

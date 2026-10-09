@@ -2360,3 +2360,61 @@ code {
     }
   }
 }
+
+/* Agent plan step transitions. Each plays once when a step's status changes
+   (AgentPlanPanel remounts the dot), never continuously. A completing dot
+   waits for the lane's rail fill to reach it (--agent-plan-dot-delay). */
+@layer components {
+  .agent-plan-dot :is(.agent-plan-dot-pop, .agent-plan-dot-unpop) {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .agent-plan-dot[data-transition="complete"] .agent-plan-dot-sweep {
+    stroke-dasharray: 1;
+    animation: agent-plan-dot-sweep 300ms ease-out var(--agent-plan-dot-delay, 0ms) both;
+  }
+  .agent-plan-dot[data-transition="complete"] .agent-plan-dot-pop {
+    animation: agent-plan-dot-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1)
+      calc(var(--agent-plan-dot-delay, 0ms) + 200ms) both;
+  }
+  .agent-plan-dot-unpop {
+    animation: agent-plan-dot-unpop 220ms ease-in both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .agent-plan-dot[data-transition] :is(.agent-plan-dot-sweep, .agent-plan-dot-pop) {
+      animation: none;
+    }
+    .agent-plan-dot-unpop {
+      display: none;
+    }
+  }
+}
+
+@keyframes agent-plan-dot-sweep {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes agent-plan-dot-pop {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes agent-plan-dot-unpop {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}

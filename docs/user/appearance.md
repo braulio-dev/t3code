@@ -29,6 +29,17 @@ The controls retreat as the composer docks after you send the first message.
 Turn on **Composer context** to keep those controls visible after the thread starts. This preference
 applies to the web and desktop clients.
 
+## Agent plans
+
+For long work with several parts, an agent can publish a plan: lanes of steps that it ticks off
+as it works. On web and desktop the plan appears in the space left of the conversation, beside the
+message markers. Click a lane to see its steps, and click a started step to jump to the turn where
+the agent worked on it. Collapse the plan to a small **Plan** pill for that thread; once every step
+is finished it shrinks to **Plan complete**. In a narrow window the plan always shows as the pill.
+
+Set **Agent plan panel** to **Compact** to always use the pill, or **Off** to hide plans. The mobile
+app does not show plans yet.
+
 ## Motion
 
 The main sidebar, right panel, and terminal drawer open and close immediately by default. Move the

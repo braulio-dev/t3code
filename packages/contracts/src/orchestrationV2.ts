@@ -361,6 +361,70 @@ export const OrchestrationV2LimitRecoveryUpdate = Schema.Struct({
 );
 export type OrchestrationV2LimitRecoveryUpdate = typeof OrchestrationV2LimitRecoveryUpdate.Type;
 
+/**
+ * A plan the agent publishes for multi-turn work through the T3 MCP plan
+ * tools. It lives on the thread until the agent replaces or clears it.
+ */
+export const OrchestrationV2AgentPlanStepStatus = Schema.Literals([
+  "pending",
+  "active",
+  "done",
+  "blocked",
+  "skipped",
+  "failed",
+]);
+export type OrchestrationV2AgentPlanStepStatus = typeof OrchestrationV2AgentPlanStepStatus.Type;
+
+const AgentPlanId = TrimmedNonEmptyString.check(Schema.isMaxLength(64));
+const AgentPlanText = TrimmedNonEmptyString.check(Schema.isMaxLength(500));
+
+export const OrchestrationV2AgentPlanStep = Schema.Struct({
+  id: AgentPlanId,
+  text: AgentPlanText,
+  status: OrchestrationV2AgentPlanStepStatus,
+  /** An issue or PR reference such as `#123`, or a URL. */
+  link: Schema.optional(AgentPlanText),
+  note: Schema.optional(AgentPlanText),
+  /** The run that first worked on the step; clients jump to its user message. */
+  runId: Schema.optional(RunId),
+});
+export type OrchestrationV2AgentPlanStep = typeof OrchestrationV2AgentPlanStep.Type;
+
+export const OrchestrationV2AgentPlanGroup = Schema.Struct({
+  id: AgentPlanId,
+  title: Schema.optional(AgentPlanText),
+  /** `timeline` steps run in order; `checklist` steps in any order. */
+  style: Schema.Literals(["checklist", "timeline"]),
+  /** What the whole group waits on, such as another lane. */
+  blockedBy: Schema.optional(AgentPlanText),
+  steps: Schema.Array(OrchestrationV2AgentPlanStep).check(Schema.isMaxLength(50)),
+});
+export type OrchestrationV2AgentPlanGroup = typeof OrchestrationV2AgentPlanGroup.Type;
+
+export const OrchestrationV2AgentPlan = Schema.Struct({
+  title: Schema.optional(AgentPlanText),
+  groups: Schema.Array(OrchestrationV2AgentPlanGroup).check(Schema.isMaxLength(20)),
+});
+export type OrchestrationV2AgentPlan = typeof OrchestrationV2AgentPlan.Type;
+
+export const OrchestrationV2AgentPlanStepUpdate = Schema.Struct({
+  stepId: AgentPlanId,
+  status: Schema.optional(OrchestrationV2AgentPlanStepStatus),
+  /** A string sets the note, null removes it. */
+  note: Schema.optional(Schema.NullOr(AgentPlanText)),
+});
+export type OrchestrationV2AgentPlanStepUpdate = typeof OrchestrationV2AgentPlanStepUpdate.Type;
+
+export const OrchestrationV2AgentPlanChange = Schema.Union([
+  Schema.Struct({ type: Schema.Literal("set"), plan: OrchestrationV2AgentPlan }),
+  Schema.Struct({
+    type: Schema.Literal("update-steps"),
+    updates: Schema.Array(OrchestrationV2AgentPlanStepUpdate).check(Schema.isMaxLength(100)),
+  }),
+  Schema.Struct({ type: Schema.Literal("clear") }),
+]);
+export type OrchestrationV2AgentPlanChange = typeof OrchestrationV2AgentPlanChange.Type;
+
 export const OrchestrationV2AppThread = Schema.Struct({
   ...OrchestrationV2CreationFields,
   id: ThreadId,
@@ -378,6 +442,7 @@ export const OrchestrationV2AppThread = Schema.Struct({
   pullRequests: Schema.optional(Schema.Array(ThreadPullRequestLink)),
   /** Pull request discovered from the thread's current branch. */
   branchPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
+  agentPlan: Schema.optional(Schema.NullOr(OrchestrationV2AgentPlan)),
   activeProviderThreadId: Schema.NullOr(ProviderThreadId),
   historyOrigin: Schema.optional(OrchestrationV2ThreadHistoryOrigin),
   lineage: OrchestrationV2AppThreadLineage,
@@ -1671,6 +1736,7 @@ export const OrchestrationV2DomainEvent = Schema.Union([
       "thread.interaction-mode-updated",
       "thread.model-selection-updated",
       "thread.provider-switched",
+      "thread.agent-plan-updated",
     ]),
     payload: OrchestrationV2AppThread,
   }),
@@ -2490,6 +2556,7 @@ export const OrchestrationV2DomainEventJson = Schema.Union([
       "thread.interaction-mode-updated",
       "thread.model-selection-updated",
       "thread.provider-switched",
+      "thread.agent-plan-updated",
     ]),
     payload: OrchestrationV2AppThreadJson,
   }),
@@ -2751,6 +2818,12 @@ export const OrchestrationV2Command = Schema.Union([
     limitRecovery: Schema.optional(Schema.NullOr(OrchestrationV2LimitRecoveryUpdate)),
     /** Link (object) or unlink (null) a pull request (#8160); absent leaves it unchanged. */
     linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("thread.agent-plan.update"),
+    commandId: CommandId,
+    threadId: ThreadId,
+    change: OrchestrationV2AgentPlanChange,
   }),
   Schema.Struct({
     type: Schema.Literal("thread.pull-request.link"),
